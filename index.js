@@ -67,6 +67,39 @@ app.post("/create-checkout-session", async (req, res) => {
     }
 });
 
+// subscription
+app.post("/create-subscription", async (req, res) => {
+    try {
+        const { email, priceId } = req.body;
+
+        // 1. Create or retrieve the customer
+        const customers = await stripe.customers.list({ email, limit: 1 });
+        const customer = customers.data.length
+            ? customers.data[0]
+            : await stripe.customers.create({ email });
+
+        // 2. Create Checkout Session for subscription
+        const session = await stripe.checkout.sessions.create({
+            customer: customer.id,
+            payment_method_types: ["card"],
+            line_items: [
+                {
+                    price: priceId, // Stripe Dashboard Price ID
+                    quantity: 1,
+                },
+            ],
+            mode: "subscription",
+            success_url: "http://localhost:4242/success",
+            cancel_url: "http://localhost:4242/cancel",
+        });
+
+        res.json({ url: session.url });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Subscription creation failed" });
+    }
+});
+
 
 app.get("/success", (req, res) => res.send("Payment succeeded ✅"));
 app.get("/cancel", (req, res) => res.send("Payment canceled ❌"));
